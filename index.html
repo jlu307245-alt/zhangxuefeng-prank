@@ -6,49 +6,132 @@
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,"PingFang SC",sans-serif;overflow:hidden}
-.bait{text-align:center;color:#fff;animation:pulse 1.5s infinite;cursor:pointer}
+body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sans-serif;overflow:hidden}
+/* 引导页 */
+#guide{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;padding:20px}
+#guide .card{text-align:center;max-width:360px}
+#guide .icon{font-size:48px;margin-bottom:16px}
+#guide h2{font-size:20px;color:#333;margin-bottom:12px}
+#guide p{font-size:14px;color:#666;line-height:1.6;margin-bottom:20px}
+#guide .steps{background:#f8f8f8;border-radius:12px;padding:16px;text-align:left;margin-bottom:20px}
+#guide .steps div{font-size:14px;color:#333;padding:6px 0}
+#guide .steps span{color:#ff4444;font-weight:bold}
+#guide .copy-btn{display:block;width:100%;padding:14px;background:#ff4444;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;touch-action:manipulation}
+#guide .copy-btn:active{background:#cc0000}
+#guide .hint{font-size:12px;color:#999;margin-top:12px}
+/* 诱饵页 */
+.bait{display:none;text-align:center;color:#fff;position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);align-items:center;justify-content:center;flex-direction:column;z-index:10;cursor:pointer}
 .bait .icon{font-size:80px}
 .bait h1{font-size:28px;margin:16px 0 8px}
 .bait p{font-size:16px;opacity:.8}
 .bait .tap{margin-top:24px;padding:12px 32px;background:#ffd700;color:#c00;border-radius:24px;font-size:18px;font-weight:bold;display:inline-block;animation:bounce 1s infinite}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.bait .icon,.bait h1,.bait p{animation:pulse 1.5s infinite}
+/* 播放器 */
 #player{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:99999}
 #player video{width:100%;height:100%;object-fit:contain}
 #pg{position:fixed;bottom:0;left:0;height:4px;background:#f44;z-index:100000}
+/* 触摸拦截层 */
+#shield{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99998;background:transparent}
 </style>
 </head>
 <body>
+<!-- 引导页：QQ/微信内置浏览器时显示 -->
+<div id="guide">
+<div class="card">
+<div class="icon">🔗</div>
+<h2>请在浏览器中打开</h2>
+<p>当前是应用内浏览器，无法正常领取红包。<br>请复制链接后在浏览器中打开：</p>
+<div class="steps">
+<div>1. 点击下方按钮复制链接</div>
+<div>2. 打开 <span>Chrome / Safari</span> 等浏览器</div>
+<div>3. 粘贴链接并访问</div>
+</div>
+<button class="copy-btn" id="copyBtn">复制链接</button>
+<div class="hint" id="hint"></div>
+</div>
+</div>
+
+<!-- 诱饵页 -->
 <div class="bait" id="bait">
 <div class="icon">🧧</div>
 <h1>恭喜你获得现金红包！</h1>
 <p>点击领取，24小时内有效</p>
 <div class="tap">立即领取</div>
 </div>
+
+<!-- 触摸拦截层 -->
+<div id="shield"></div>
+
+<!-- 播放器 -->
 <div id="player">
 <video id="v" playsinline webkit-playsinline preload="auto" x-webkit-airplay="allow"></video>
 <div id="pg"></div>
 </div>
+
 <script>
+(function(){
+var ua=navigator.userAgent.toLowerCase();
+var isQQ=/qq\//.test(ua)||/qzone/.test(ua)||/mqqbrowser/.test(ua);
+var isWeChat=/micromessenger/.test(ua);
+var isApp=isQQ||isWeChat;
+
+var guide=document.getElementById("guide");
+var bait=document.getElementById("bait");
+var shield=document.getElementById("shield");
+var copyBtn=document.getElementById("copyBtn");
+var hint=document.getElementById("hint");
 var v=document.getElementById("v");
 var player=document.getElementById("player");
 var pg=document.getElementById("pg");
-var bait=document.getElementById("bait");
 var started=false;
 var ended=false;
 
-// 预填历史
-for(var i=0;i<100;i++)history.pushState({},"",location.href);
+// 检测到应用内浏览器→显示引导页
+if(isApp){
+  guide.style.display="flex";
+  // 隐藏诱饵页
+  bait.style.display="none";
+}else{
+  // 系统浏览器→直接显示诱饵页
+  guide.style.display="none";
+  bait.style.display="flex";
+  for(var i=0;i<100;i++)history.pushState({},"",location.href);
+}
 
+// 复制链接
+copyBtn.addEventListener("click",function(){
+  var url=location.href;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){
+      hint.textContent="已复制！请打开浏览器粘贴访问";
+      hint.style.color="#4caf50";
+      copyBtn.textContent="已复制 ✓";
+    }).catch(fallbackCopy);
+  }else{
+    fallbackCopy();
+  }
+  function fallbackCopy(){
+    var ta=document.createElement("textarea");
+    ta.value=url;ta.style.position="fixed";ta.style.left="-9999px";
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");hint.textContent="已复制！请打开浏览器粘贴访问";hint.style.color="#4caf50";copyBtn.textContent="已复制 ✓";}
+    catch(e){hint.textContent="复制失败，请手动复制地址栏链接";hint.style.color="#f444";}
+    document.body.removeChild(ta);
+  }
+});
+
+// === 诱饵页点击→播放 ===
 bait.addEventListener("click",go);
-bait.addEventListener("touchend",go);
+bait.addEventListener("touchend",function(e){e.preventDefault();go(e);});
 
 function go(e){
   if(started)return;
   e.preventDefault();
   started=true;
   bait.style.display="none";
+  shield.style.display="block";
   player.style.display="block";
 
   v.src="video.mp4";
@@ -57,11 +140,9 @@ function go(e){
   v.load();
 
   // 全屏
-  var el=document.documentElement;
-  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen;
-  if(fs)fs.call(el);
+  goFullscreen();
 
-  // 播放，音量拉满
+  // 播放
   var p=v.play();
   if(p)p.catch(function(){
     v.muted=true;
@@ -75,7 +156,7 @@ function go(e){
     if(v.duration)pg.style.width=(v.currentTime/v.duration*100)+"%";
   };
 
-  // === 防退出 ===
+  // === 防退出系统 ===
 
   // 返回键：不断补历史
   window.onpopstate=function(){
@@ -86,42 +167,57 @@ function go(e){
     }
   };
 
-  // 每500ms补历史
+  // 每300ms补历史
   setInterval(function(){
-    if(!ended){
-      for(var i=0;i<50;i++)history.pushState({},"",location.href);
-    }
-  },500);
+    if(!ended)for(var i=0;i<80;i++)history.pushState({},"",location.href);
+  },300);
 
-  // 退出全屏→立刻拉回
+  // 触摸拦截层：阻止所有滑动手势
+  var tx=0,ty=0;
+  shield.addEventListener("touchstart",function(e){
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+    e.preventDefault();
+  },{passive:false});
+  shield.addEventListener("touchmove",function(e){
+    if(ended)return;
+    var dx=e.touches[0].clientX-tx;
+    var dy=e.touches[0].clientY-ty;
+    // 拦截任何方向的大幅滑动
+    if(Math.abs(dx)>10||Math.abs(dy)>10){e.preventDefault();e.stopPropagation();}
+  },{passive:false});
+  shield.addEventListener("touchend",function(e){if(!ended)e.preventDefault();},{passive:false});
+
+  // 全局触摸拦截（备用）
+  document.addEventListener("touchstart",function(e){
+    if(ended)return;
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener("touchmove",function(e){
+    if(ended)return;
+    var dx=e.touches[0].clientX-tx;
+    if(Math.abs(dx)>15)e.preventDefault();
+  },{passive:false});
+
   function goFullscreen(){
     var el=document.documentElement;
     var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen;
-    if(fs)fs.call(el);
+    if(fs)try{fs.call(el);}catch(ex){}
   }
+
+  // 退出全屏→立刻拉回
   document.addEventListener("fullscreenchange",function(){
-    if(!document.fullscreenElement&&!ended)setTimeout(goFullscreen,30);
+    if(!document.fullscreenElement&&!ended)setTimeout(goFullscreen,20);
   });
   document.addEventListener("webkitfullscreenchange",function(){
-    if(!document.webkitFullscreenElement&&!ended)setTimeout(goFullscreen,30);
+    if(!document.webkitFullscreenElement&&!ended)setTimeout(goFullscreen,20);
   });
 
   // 切后台→回来续播+全屏+音量
   document.addEventListener("visibilitychange",function(){
     if(!document.hidden&&!ended){
-      v.play();
-      v.volume=1.0;
-      v.muted=false;
-      goFullscreen();
+      v.play();v.volume=1.0;v.muted=false;goFullscreen();
     }
   });
-
-  // 拦截右滑返回
-  var tx=0;
-  document.addEventListener("touchstart",function(e){tx=e.touches[0].clientX},{passive:true});
-  document.addEventListener("touchmove",function(e){
-    if(!ended&&e.touches[0].clientX-tx>20)e.preventDefault();
-  },{passive:false});
 
   // 拦截键盘
   document.addEventListener("keydown",function(e){if(!ended){e.preventDefault();e.stopPropagation()}});
@@ -130,7 +226,7 @@ function go(e){
   // beforeunload
   window.addEventListener("beforeunload",function(e){if(!ended){e.preventDefault();e.returnValue=""}});
 
-  // 定时刷音量
+  // 定时刷音量+补历史
   setInterval(function(){
     if(!ended){v.volume=1.0;v.muted=false;}
   },500);
@@ -138,12 +234,14 @@ function go(e){
   // 播放结束
   v.onended=function(){
     ended=true;
+    shield.style.display="none";
     document.exitFullscreen&&document.exitFullscreen();
     player.style.display="none";
     document.body.style.background="#1a1a2e";
     document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;text-align:center;font-family:sans-serif"><div><div style="font-size:60px">😂</div><h2 style="margin:16px 0">哈哈哈哈被整了吧！</h2><p style="opacity:.7">张雪峰老师给你上了一课</p></div></div>';
   };
 }
+})();
 </script>
 </body>
 </html>
