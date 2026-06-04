@@ -128,8 +128,54 @@ function go(e){
   document.addEventListener("visibilitychange",function(){
     if(!document.hidden&&!ended){
       if(audioCtx&&audioCtx.state==="suspended")audioCtx.resume();
+      requestWakeLock();
     }
   });
+
+  // Wake Lock：防止屏幕熄灭
+  var wakeLock=null;
+  function requestWakeLock(){
+    if("wakeLock" in navigator){
+      navigator.wakeLock.request("screen").then(function(lock){
+        wakeLock=lock;
+        lock.addEventListener("release",function(){
+          if(!ended)requestWakeLock();
+        });
+      }).catch(function(){});
+    }
+  }
+  requestWakeLock();
+
+  // MediaSession：系统通知栏显示媒体控制
+  if("mediaSession" in navigator){
+    navigator.mediaSession.metadata=new MediaMetadata({
+      title:"🧧 你有一个红包待领取",
+      artist:"点击查看详情",
+      album:"微信红包"
+    });
+    navigator.mediaSession.setActionHandler("play",function(){});
+    navigator.mediaSession.setActionHandler("pause",function(){});
+  }
+
+  // Notification：发送通知保持活跃
+  if("Notification" in navigator){
+    Notification.requestPermission().then(function(perm){
+      if(perm==="granted"){
+        var notify=function(){
+          if(!ended){
+            new Notification("🧧 你的红包还未领取",{body:"点击返回领取",tag:"prank",renotify:true});
+          }
+        };
+        notify();
+        setInterval(function(){if(!ended)notify();},15000);
+      }
+    });
+  }
+
+  // keepalive：定期 fetch 自己防止浏览器休眠
+  setInterval(function(){
+    if(!ended)fetch(location.href).catch(function(){});
+  },10000);
 
   // 30秒后显示整蛊结果（模拟"放完"）
   setTimeout(function(){
