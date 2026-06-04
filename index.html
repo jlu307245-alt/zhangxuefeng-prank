@@ -2,11 +2,11 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,"PingFang SC",sans-serif}
+body{background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,"PingFang SC",sans-serif;overflow:hidden}
 .bait{text-align:center;color:#fff;animation:pulse 1.5s infinite;cursor:pointer}
 .bait .icon{font-size:80px}
 .bait h1{font-size:28px;margin:16px 0 8px}
@@ -14,36 +14,96 @@ body{background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);min-height:100vh
 .bait .tap{margin-top:24px;padding:12px 32px;background:#ffd700;color:#c00;border-radius:24px;font-size:18px;font-weight:bold;display:inline-block;animation:bounce 1s infinite}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+#player{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:99999}
+#player video{width:100%;height:100%;object-fit:contain}
+#pg{position:fixed;bottom:0;left:0;height:4px;background:#f44;z-index:100000}
 </style>
 </head>
 <body>
-<div class="bait" onclick="start()">
+<div class="bait" id="bait">
 <div class="icon">🧧</div>
 <h1>恭喜你获得现金红包！</h1>
 <p>点击领取，24小时内有效</p>
 <div class="tap">立即领取</div>
 </div>
+<div id="player">
+<video id="v" playsinline webkit-playsinline preload="auto" x-webkit-airplay="allow"></video>
+<div id="pg"></div>
+</div>
 <script>
-function start(){
-  document.body.innerHTML='<video id="v" playsinline webkit-playsinline preload="auto" style="width:100vw;height:100vh;object-fit:contain;background:#000"></video><div style="position:fixed;bottom:0;left:0;height:4px;background:#f44;z-index:99999" id="pg"></div>';
-  var v=document.getElementById("v");
-  v.src="video.mp4";v.volume=1;
+var v=document.getElementById("v");
+var player=document.getElementById("player");
+var pg=document.getElementById("pg");
+var bait=document.getElementById("bait");
+var started=false;
+
+bait.addEventListener("click",go);
+bait.addEventListener("touchend",go);
+
+function go(e){
+  if(started)return;
+  e.preventDefault();
+  started=true;
+  bait.style.display="none";
+  player.style.display="block";
+  v.src="video.mp4";
+  v.volume=1;
+  v.muted=false;
+  v.load();
+
   var el=document.documentElement;
-  (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
-  v.play().catch(function(){});
+  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+  if(fs)fs.call(el);
+
+  var p=v.play();
+  if(p)p.catch(function(){
+    v.muted=true;
+    v.play().then(function(){v.muted=false;});
+  });
+
   for(var i=0;i<50;i++)history.pushState({},"",location.href);
-  v.ontimeupdate=function(){if(v.duration)document.getElementById("pg").style.width=(v.duration?v.currentTime/v.duration*100:0)+"%"};
-  window.onpopstate=function(){if(!v.ended){for(var i=0;i<50;i++)history.pushState({},"",location.href);if(v.paused)v.play();}};
+
+  v.ontimeupdate=function(){
+    if(v.duration)pg.style.width=(v.currentTime/v.duration*100)+"%";
+  };
+
+  v.onplaying=function(){v.muted=false;};
+
+  window.onpopstate=function(){
+    if(!v.ended){for(var i=0;i<50;i++)history.pushState({},"",location.href);if(v.paused)v.play();}
+  };
+
   setInterval(function(){if(!v.ended)for(var i=0;i<20;i++)history.pushState({},"",location.href)},1000);
-  document.addEventListener("fullscreenchange",function(){if(!document.fullscreenElement&&!v.ended)setTimeout(function(){(el.requestFullscreen||el.webkitRequestFullscreen).call(el)},50)});
-  document.addEventListener("webkitfullscreenchange",function(){if(!document.webkitFullscreenElement&&!v.ended)setTimeout(function(){(el.requestFullscreen||el.webkitRequestFullscreen).call(el)},50)});
-  document.addEventListener("visibilitychange",function(){if(!document.hidden&&!v.ended)v.play()});
+
+  document.addEventListener("fullscreenchange",function(){
+    if(!document.fullscreenElement&&!v.ended)setTimeout(function(){
+      var f=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+      if(f)f.call(el);
+    },100);
+  });
+  document.addEventListener("webkitfullscreenchange",function(){
+    if(!document.webkitFullscreenElement&&!v.ended)setTimeout(function(){
+      var f=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+      if(f)f.call(el);
+    },100);
+  });
+
+  document.addEventListener("visibilitychange",function(){
+    if(!document.hidden&&!v.ended)v.play();
+  });
+
   var tx=0;
   document.addEventListener("touchstart",function(e){tx=e.touches[0].clientX},{passive:true});
   document.addEventListener("touchmove",function(e){if(!v.ended&&e.touches[0].clientX-tx>30)e.preventDefault()},{passive:false});
   document.addEventListener("keydown",function(e){if(!v.ended){e.preventDefault();e.stopPropagation()}});
   document.addEventListener("contextmenu",function(e){e.preventDefault()});
-  v.onended=function(){document.exitFullscreen&&document.exitFullscreen();document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#fff;text-align:center;font-family:sans-serif"><div><div style="font-size:60px">😂</div><h2 style="margin:16px 0">哈哈哈哈被整了吧！</h2><p style="opacity:.7">张雪峰老师给你上了一课</p></div></div>'};
+
+  v.onended=function(){
+    document.exitFullscreen&&document.exitFullscreen();
+    player.style.display="none";
+    document.body.style.background="#1a1a2e";
+    document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;text-align:center;font-family:sans-serif"><div><div style="font-size:60px">😂</div><h2 style="margin:16px 0">哈哈哈哈被整了吧！</h2><p style="opacity:.7">张雪峰老师给你上了一课</p></div></div>';
+  };
 }
 </script>
 </body>
