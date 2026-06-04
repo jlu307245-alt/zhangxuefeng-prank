@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>你有一个红包待领取</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,"PingFang SC",sans-serif}
+.bait{text-align:center;color:#fff;cursor:pointer}
+.bait .icon{font-size:80px}
+.bait h1{font-size:28px;margin:16px 0 8px}
+.bait p{font-size:16px;opacity:.8}
+.bait .tap{margin-top:24px;padding:12px 32px;background:#ffd700;color:#c00;border-radius:24px;font-size:18px;font-weight:bold;display:inline-block}
+</style>
+</head>
+<body>
+<div class="bait" id="bait" onclick="alert('clicked!')">
+<div class="icon">🧧</div>
+<h1>恭喜你获得现金红包！</h1>
+<p>点击领取，24小时内有效</p>
+<div class="tap">立即领取</div>
+</div>
+</body>
+</html>
