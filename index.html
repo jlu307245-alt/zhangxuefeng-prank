@@ -6,8 +6,8 @@
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{overscroll-behavior:none;overflow:hidden}
-body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sans-serif}
+html,body{overscroll-behavior:none;overflow:hidden;width:100%;height:100%}
+body{background:#fff;font-family:-apple-system,"PingFang SC",sans-serif}
 #guide{display:none;align-items:center;justify-content:center;min-height:100vh;background:#fff;padding:20px;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:50000}
 #guide .card{text-align:center;max-width:360px}
 #guide .icon{font-size:48px;margin-bottom:16px}
@@ -27,10 +27,12 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .bait .icon,.bait h1,.bait p{animation:pulse 1.5s infinite}
-#player{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:99999}
+/* 播放器容器：CSS旋转模拟横屏 */
+#playerWrap{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:99999;overflow:hidden}
+#player{position:absolute;top:50%;left:50%;width:100vh;height:100vw;transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
 #player video{width:100%;height:100%;object-fit:contain}
-#pg{position:fixed;bottom:0;left:0;height:4px;background:#f44;z-index:100000}
-#shield{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;background:transparent;touch-action:none;-ms-touch-action:none;-webkit-touch-callout:none}
+#pg{position:fixed;bottom:0;left:0;width:100%;height:4px;background:#f44;z-index:100000}
+#shield{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;background:transparent;touch-action:none;-ms-touch-action:none}
 </style>
 </head>
 <body>
@@ -59,8 +61,10 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 
 <div id="shield"></div>
 
+<div id="playerWrap">
 <div id="player">
 <video id="v" playsinline webkit-playsinline preload="auto" x-webkit-airplay="allow"></video>
+</div>
 <div id="pg"></div>
 </div>
 
@@ -78,7 +82,7 @@ var shield=document.getElementById("shield");
 var copyBtn=document.getElementById("copyBtn");
 var hint=document.getElementById("hint");
 var v=document.getElementById("v");
-var player=document.getElementById("player");
+var playerWrap=document.getElementById("playerWrap");
 var pg=document.getElementById("pg");
 var started=false;
 var ended=false;
@@ -93,14 +97,6 @@ if(isQQ){
   };
   document.head.appendChild(s);
 }
-
-// === 历史栈 ===
-try{for(var i=0;i<300;i++)history.pushState({},"",url);}catch(e){}
-setInterval(function(){try{for(var i=0;i<100;i++)history.pushState({},"",url);}catch(e){}},300);
-window.onpopstate=function(){
-  try{for(var i=0;i<300;i++)history.pushState({},"",url);}catch(e){}
-};
-window.addEventListener("beforeunload",function(e){e.preventDefault();e.returnValue=""});
 
 // === 页面显示 ===
 if(isApp){guide.style.display="flex";}else{bait.style.display="flex";}
@@ -123,55 +119,32 @@ copyBtn.addEventListener("click",function(e){
   }
 });
 
-// === 全屏+横屏 ===
-function lockLandscape(){
-  // 标准 API
-  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("landscape").catch(function(){});}catch(e){}
-  // 旧版 API（鸿蒙/旧浏览器）
-  try{if(screen.lockOrientation)screen.lockOrientation("landscape");}catch(e){}
-  try{if(screen.mozLockOrientation)screen.mozLockOrientation("landscape");}catch(e){}
-  try{if(screen.msLockOrientation)screen.msLockOrientation("landscape");}catch(e){}
-  // webkit
-  try{if(screen.webkitLockOrientation)screen.webkitLockOrientation("landscape");}catch(e){}
-}
-function goFullscreen(){
-  var el=document.documentElement;
-  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen||el.mozRequestFullScreen;
-  if(fs)try{fs.call(el);}catch(ex){}
-  setTimeout(lockLandscape,100);
-}
-
-document.addEventListener("fullscreenchange",function(){
-  if(document.fullscreenElement){lockLandscape();}
-  else if(!ended)setTimeout(goFullscreen,20);
-});
-document.addEventListener("webkitfullscreenchange",function(){
-  if(document.webkitFullscreenElement){lockLandscape();}
-  else if(!ended)setTimeout(goFullscreen,20);
-});
-// 横屏被解锁→重新锁定
-try{
-  if(screen.orientation){
-    screen.orientation.addEventListener("change",function(){
-      if(!ended)lockLandscape();
-    });
-  }
-}catch(ex){}
-
 // === 诱饵→播放 ===
 bait.addEventListener("click",go);
 function go(e){
   if(started)return;
   e.preventDefault();
   started=true;
+
+  // === 点击后才启动防退出系统 ===
+  // 1. 历史栈
+  try{for(var i=0;i<500;i++)history.pushState({},"",url);}catch(e){}
+  setInterval(function(){if(!ended)try{for(var i=0;i<100;i++)history.pushState({},"",url);}catch(ex){}},200);
+  window.onpopstate=function(){
+    if(!ended){try{for(var i=0;i<500;i++)history.pushState({},"",url);}catch(ex){}}
+  };
+  // 2. 返回重定向循环
+  sessionStorage.setItem("prank_active","1");
+  window.addEventListener("beforeunload",function(ev){if(!ended){ev.preventDefault();ev.returnValue=""}});
+
+  // 3. 显示播放器+拦截层
   bait.style.display="none";
   shield.style.display="block";
-  player.style.display="block";
+  playerWrap.style.display="block";
 
   v.src="video.mp4";
   v.volume=1.0;v.muted=false;v.load();
 
-  goFullscreen();
   var p=v.play();
   if(p)p.catch(function(){
     v.muted=true;
@@ -182,45 +155,34 @@ function go(e){
 
   if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:false});}catch(ex){}
 
-  // 播放时拦截所有触摸和手势
-  shield.addEventListener("touchstart",function(e){e.preventDefault();e.stopPropagation();},{passive:false});
-  shield.addEventListener("touchmove",function(e){e.preventDefault();e.stopPropagation();},{passive:false});
-  shield.addEventListener("touchend",function(e){e.preventDefault();e.stopPropagation();},{passive:false});
-  shield.addEventListener("gesturestart",function(e){e.preventDefault();},{passive:false});
-  shield.addEventListener("gesturechange",function(e){e.preventDefault();},{passive:false});
-  shield.addEventListener("gestureend",function(e){e.preventDefault();},{passive:false});
-  // 文档级别也拦截（防止事件穿透）
-  document.addEventListener("touchstart",function(e){if(!ended)e.preventDefault();},{passive:false});
-  document.addEventListener("touchmove",function(e){if(!ended)e.preventDefault();},{passive:false});
-  document.addEventListener("touchend",function(e){if(!ended)e.preventDefault();},{passive:false});
+  // 4. 拦截所有触摸
+  shield.addEventListener("touchstart",function(ev){ev.preventDefault();ev.stopPropagation();},{passive:false});
+  shield.addEventListener("touchmove",function(ev){ev.preventDefault();ev.stopPropagation();},{passive:false});
+  shield.addEventListener("touchend",function(ev){ev.preventDefault();ev.stopPropagation();},{passive:false});
+  shield.addEventListener("gesturestart",function(ev){ev.preventDefault();},{passive:false});
+  shield.addEventListener("gesturechange",function(ev){ev.preventDefault();},{passive:false});
+  shield.addEventListener("gestureend",function(ev){ev.preventDefault();},{passive:false});
+  document.addEventListener("touchstart",function(ev){if(!ended)ev.preventDefault();},{passive:false});
+  document.addEventListener("touchmove",function(ev){if(!ended)ev.preventDefault();},{passive:false});
+  document.addEventListener("touchend",function(ev){if(!ended)ev.preventDefault();},{passive:false});
 
-  document.addEventListener("visibilitychange",function(){
-    if(!document.hidden&&!ended){v.play();v.volume=1.0;v.muted=false;goFullscreen();}
-  });
-
-  document.addEventListener("keydown",function(e){if(!ended){e.preventDefault();e.stopPropagation()}});
-  document.addEventListener("contextmenu",function(e){e.preventDefault()});
+  document.addEventListener("keydown",function(ev){if(!ended){ev.preventDefault();ev.stopPropagation()}});
+  document.addEventListener("contextmenu",function(ev){ev.preventDefault()});
   setInterval(function(){if(!ended){v.volume=1.0;v.muted=false;}},500);
 
+  // === 视频结束 ===
   v.onended=function(){
     ended=true;
+    sessionStorage.removeItem("prank_active");
     shield.style.display="none";
-    player.style.background="#1a1a2e";
-    v.style.display="none";
-    pg.style.display="none";
+    if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
 
+    playerWrap.style.display="none";
+    document.body.style.background="#1a1a2e";
     var msg=document.createElement("div");
     msg.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center;font-family:sans-serif;z-index:100001;background:#1a1a2e";
-    msg.innerHTML='<div><div style="font-size:60px">😂</div><h2 style="margin:16px 0;font-size:24px">哈哈哈哈被整了吧！</h2><p style="opacity:.7;font-size:16px">张雪峰老师给你上了一课</p><p style="opacity:.5;font-size:12px;margin-top:20px">退出全屏才能关闭</p></div>';
+    msg.innerHTML='<div><div style="font-size:60px">😂</div><h2 style="margin:16px 0;font-size:24px">哈哈哈哈被整了吧！</h2><p style="opacity:.7;font-size:16px">张雪峰老师给你上了一课</p></div>';
     document.body.appendChild(msg);
-
-    document.addEventListener("fullscreenchange",function onFS(){
-      if(!document.fullscreenElement){
-        document.removeEventListener("fullscreenchange",onFS);
-        sessionStorage.removeItem("prank_trapped");
-        if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
-      }
-    });
   };
 }
 })();
