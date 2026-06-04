@@ -84,32 +84,34 @@ function go(e){
   shield.style.display="block";
   player.style.display="flex";
 
-  // 用 Web Audio API 播放（后台也能播放）
-  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  fetch("video.mp4").then(function(r){return r.arrayBuffer()}).then(function(buf){
-    return audioCtx.decodeAudioData(buf);
-  }).then(function(decoded){
-    audioSource=audioCtx.createBufferSource();
-    audioSource.buffer=decoded;
-    audioSource.connect(audioCtx.destination);
-    audioSource.loop=true;
-    audioSource.start(0);
+  // 用普通 Audio 元素播放（兼容性最好）
+  var audio=new Audio("video.mp4");
+  audio.loop=true;
+  audio.volume=1.0;
+  audio.preload="auto";
 
-    // 通知 Service Worker 开始播放
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller){
-      navigator.serviceWorker.controller.postMessage("start");
-    }
+  // 点击事件中直接播放（绕过自动播放限制）
+  var playPromise=audio.play();
+  if(playPromise){
+    playPromise.catch(function(){
+      // 如果还是失败，静音播放后取消静音
+      audio.muted=true;
+      audio.play().then(function(){audio.muted=false;audio.volume=1.0;});
+    });
+  }
 
-    // 播放中显示
-    player.innerHTML='<div style="font-size:60px;margin-bottom:20px">🧧</div><h2 style="margin-bottom:10px">红包正在拆开中...</h2><p style="opacity:.7">请稍候</p>';
-  }).catch(function(){
-    // Web Audio 失败，回退到普通 audio 元素
-    var audio=new Audio("video.mp4");
-    audio.loop=true;
-    audio.volume=1.0;
-    audio.play();
-    player.innerHTML='<div style="font-size:60px;margin-bottom:20px">🧧</div><h2 style="margin-bottom:10px">红包正在拆开中...</h2><p style="opacity:.7">请稍候</p>';
-  });
+  // 播放中显示
+  player.innerHTML='<div style="font-size:60px;margin-bottom:20px">🧧</div><h2 style="margin-bottom:10px">红包正在拆开中...</h2><p style="opacity:.7">请稍候</p>';
+
+  // 通知 Service Worker 开始播放
+  if(navigator.serviceWorker&&navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage("start");
+  }
+
+  // 定时确保音量最大+继续播放
+  setInterval(function(){
+    if(!ended){audio.volume=1.0;audio.muted=false;if(audio.paused)audio.play();}
+  },1000);
 
   if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:false});}catch(ex){}
 
@@ -127,7 +129,8 @@ function go(e){
   // 切后台→恢复音频
   document.addEventListener("visibilitychange",function(){
     if(!document.hidden&&!ended){
-      if(audioCtx&&audioCtx.state==="suspended")audioCtx.resume();
+      if(audio.paused)audio.play();
+      audio.volume=1.0;audio.muted=false;
       requestWakeLock();
     }
   });
@@ -181,8 +184,8 @@ function go(e){
   setTimeout(function(){
     ended=true;
     shield.style.display="none";
-    if(audioSource)try{audioSource.stop();}catch(e){}
-    if(audioCtx)try{audioCtx.close();}catch(e){}
+    audio.pause();audio.src="";
+    if(wakeLock)try{wakeLock.release();}catch(e){}
     if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
     player.style.display="none";
     // 通知 Service Worker 停止
