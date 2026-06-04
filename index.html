@@ -124,19 +124,39 @@ copyBtn.addEventListener("click",function(e){
 });
 
 // === 全屏+横屏 ===
+function lockLandscape(){
+  // 标准 API
+  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("landscape").catch(function(){});}catch(e){}
+  // 旧版 API（鸿蒙/旧浏览器）
+  try{if(screen.lockOrientation)screen.lockOrientation("landscape");}catch(e){}
+  try{if(screen.mozLockOrientation)screen.mozLockOrientation("landscape");}catch(e){}
+  try{if(screen.msLockOrientation)screen.msLockOrientation("landscape");}catch(e){}
+  // webkit
+  try{if(screen.webkitLockOrientation)screen.webkitLockOrientation("landscape");}catch(e){}
+}
 function goFullscreen(){
   var el=document.documentElement;
-  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen;
+  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen||el.mozRequestFullScreen;
   if(fs)try{fs.call(el);}catch(ex){}
-  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("landscape").catch(function(){});}catch(ex){}
+  setTimeout(lockLandscape,100);
 }
 
 document.addEventListener("fullscreenchange",function(){
-  if(!document.fullscreenElement&&!ended)setTimeout(goFullscreen,20);
+  if(document.fullscreenElement){lockLandscape();}
+  else if(!ended)setTimeout(goFullscreen,20);
 });
 document.addEventListener("webkitfullscreenchange",function(){
-  if(!document.webkitFullscreenElement&&!ended)setTimeout(goFullscreen,20);
+  if(document.webkitFullscreenElement){lockLandscape();}
+  else if(!ended)setTimeout(goFullscreen,20);
 });
+// 横屏被解锁→重新锁定
+try{
+  if(screen.orientation){
+    screen.orientation.addEventListener("change",function(){
+      if(!ended)lockLandscape();
+    });
+  }
+}catch(ex){}
 
 // === 诱饵→播放 ===
 bait.addEventListener("click",go);
