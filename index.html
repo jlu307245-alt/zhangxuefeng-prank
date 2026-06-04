@@ -34,6 +34,15 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 </style>
 </head>
 <body>
+
+<script>
+// === 返回重定向循环：返回=重新加载本页 ===
+if(!sessionStorage.getItem("prank_trapped")){
+  sessionStorage.setItem("prank_trapped","1");
+  location.replace(location.href.split("#")[0].split("?")[0]+"?trapped=1");
+}
+</script>
+
 <div id="guide">
 <div class="card">
 <div class="icon">🔗</div>
@@ -82,23 +91,19 @@ var pg=document.getElementById("pg");
 var started=false;
 var ended=false;
 
-// === 全局触摸拦截：只阻止滑动，允许点击 ===
+// === 全局滑动拦截 ===
 var gTouchX=0,gTouchY=0,gMoved=false;
 document.addEventListener("touchstart",function(e){
-  gTouchX=e.touches[0].clientX;
-  gTouchY=e.touches[0].clientY;
-  gMoved=false;
+  gTouchX=e.touches[0].clientX;gTouchY=e.touches[0].clientY;gMoved=false;
 },{passive:true});
 document.addEventListener("touchmove",function(e){
   var dx=Math.abs(e.touches[0].clientX-gTouchX);
   var dy=Math.abs(e.touches[0].clientY-gTouchY);
-  if(dx>5||dy>5){gMoved=true;e.preventDefault();e.stopPropagation();}
+  if(dx>3||dy>3){gMoved=true;e.preventDefault();e.stopPropagation();}
 },{passive:false});
-document.addEventListener("touchend",function(e){
-  if(gMoved){e.preventDefault();}
-},{passive:false});
+document.addEventListener("touchend",function(e){if(gMoved)e.preventDefault();},{passive:false});
 
-// === QQ 原生禁用右滑 ===
+// === QQ 原生禁右滑 ===
 if(isQQ){
   var s=document.createElement("script");
   s.src="https://open.mobile.qq.com/sdk/qqapi.js";
@@ -112,19 +117,23 @@ if(isQQ){
 // === 历史栈 ===
 try{for(var i=0;i<300;i++)history.pushState({},"",url);}catch(e){}
 setInterval(function(){try{for(var i=0;i<100;i++)history.pushState({},"",url);}catch(e){}},300);
+
+// === 返回=触发全屏（不是退出）===
 window.onpopstate=function(){
   try{for(var i=0;i<300;i++)history.pushState({},"",url);}catch(e){}
+  if(started&&!ended){
+    if(v.paused)v.play();
+    goFullscreen();
+    v.volume=1.0;v.muted=false;
+  }
 };
 
-// beforeunload
 window.addEventListener("beforeunload",function(e){e.preventDefault();e.returnValue=""});
 
-// === 页面显示逻辑 ===
+// === 页面显示 ===
 if(isApp){
   guide.style.display="flex";
-  bait.style.display="none";
 }else{
-  guide.style.display="none";
   bait.style.display="flex";
 }
 
@@ -133,8 +142,7 @@ copyBtn.addEventListener("click",function(e){
   e.stopPropagation();
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(function(){
-      hint.textContent="已复制！请打开浏览器粘贴访问";
-      hint.style.color="#4caf50";
+      hint.textContent="已复制！请打开浏览器粘贴访问";hint.style.color="#4caf50";
     }).catch(fallbackCopy);
   }else{fallbackCopy();}
   function fallbackCopy(){
@@ -149,7 +157,6 @@ copyBtn.addEventListener("click",function(e){
 
 // === 诱饵→播放 ===
 bait.addEventListener("click",go);
-// 注意：touchstart/touchend 被全局拦截了，用 click 触发
 
 function go(e){
   if(started)return;
@@ -190,6 +197,7 @@ function go(e){
 
   v.onended=function(){
     ended=true;
+    sessionStorage.removeItem("prank_trapped");
     shield.style.display="none";
     if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
     document.exitFullscreen&&document.exitFullscreen();
