@@ -6,7 +6,7 @@
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{overscroll-behavior:none;touch-action:none;overflow:hidden}
+html,body{overscroll-behavior:none;touch-action:manipulation;overflow:hidden}
 body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sans-serif}
 #guide{display:none;align-items:center;justify-content:center;min-height:100vh;background:#fff;padding:20px;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:50000}
 #guide .card{text-align:center;max-width:360px}
@@ -99,7 +99,7 @@ document.addEventListener("touchstart",function(e){
 document.addEventListener("touchmove",function(e){
   var dx=Math.abs(e.touches[0].clientX-gTX);
   var dy=Math.abs(e.touches[0].clientY-gTY);
-  if(dx>2||dy>2){gMoved=true;e.preventDefault();e.stopPropagation();}
+  if(dx>10||dy>10){gMoved=true;e.preventDefault();e.stopPropagation();}
 },{passive:false});
 document.addEventListener("touchend",function(e){if(gMoved)e.preventDefault();},{passive:false});
 document.addEventListener("gesturestart",function(e){e.preventDefault();},{passive:false});
