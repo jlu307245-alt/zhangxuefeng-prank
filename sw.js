@@ -2,7 +2,7 @@ var active=false;
 
 self.addEventListener("install",function(e){
   e.waitUntil(
-    caches.open("prank-v1").then(function(cache){
+    caches.open("prank-v2").then(function(cache){
       return cache.addAll(["index.html","video.mp4"]);
     })
   );
