@@ -6,7 +6,7 @@
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{overscroll-behavior:none;touch-action:manipulation;overflow:hidden}
+html,body{overscroll-behavior:none;overflow:hidden}
 body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sans-serif}
 #guide{display:none;align-items:center;justify-content:center;min-height:100vh;background:#fff;padding:20px;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:50000}
 #guide .card{text-align:center;max-width:360px}
@@ -16,10 +16,10 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 #guide .steps{background:#f8f8f8;border-radius:12px;padding:16px;text-align:left;margin-bottom:20px}
 #guide .steps div{font-size:14px;color:#333;padding:6px 0}
 #guide .steps span{color:#ff4444;font-weight:bold}
-#guide .btn{display:block;width:100%;padding:14px;background:#ff4444;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer}
+#guide .btn{display:block;width:100%;padding:14px;background:#ff4444;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #guide .btn:active{background:#cc0000}
 #guide .hint{font-size:12px;color:#999;margin-top:12px}
-.bait{display:none;text-align:center;color:#fff;position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);align-items:center;justify-content:center;flex-direction:column;z-index:10;cursor:pointer}
+.bait{display:none;text-align:center;color:#fff;position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);align-items:center;justify-content:center;flex-direction:column;z-index:10;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .bait .icon{font-size:80px}
 .bait h1{font-size:28px;margin:16px 0 8px}
 .bait p{font-size:16px;opacity:.8}
@@ -30,8 +30,7 @@ body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sa
 #player{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:99999}
 #player video{width:100%;height:100%;object-fit:contain}
 #pg{position:fixed;bottom:0;left:0;height:4px;background:#f44;z-index:100000}
-/* 不透明拦截层：覆盖一切，阻止任何触摸 */
-#shield{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;background:rgba(0,0,0,0.01);touch-action:none;-ms-touch-action:none}
+#shield{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;background:transparent;touch-action:none}
 </style>
 </head>
 <body>
@@ -91,25 +90,6 @@ var pg=document.getElementById("pg");
 var started=false;
 var ended=false;
 
-// === 全局：只拦截滑动，允许点击 ===
-var gTX=0,gTY=0,gMoved=false;
-document.addEventListener("touchstart",function(e){
-  gTX=e.touches[0].clientX;gTY=e.touches[0].clientY;gMoved=false;
-},{passive:true});
-document.addEventListener("touchmove",function(e){
-  var dx=Math.abs(e.touches[0].clientX-gTX);
-  var dy=Math.abs(e.touches[0].clientY-gTY);
-  if(dx>10||dy>10){gMoved=true;e.preventDefault();e.stopPropagation();}
-},{passive:false});
-document.addEventListener("touchend",function(e){if(gMoved)e.preventDefault();},{passive:false});
-document.addEventListener("gesturestart",function(e){e.preventDefault();},{passive:false});
-document.addEventListener("gesturechange",function(e){e.preventDefault();},{passive:false});
-document.addEventListener("gestureend",function(e){e.preventDefault();},{passive:false});
-
-// 拦截键盘
-document.addEventListener("keydown",function(e){e.preventDefault();e.stopPropagation();});
-document.addEventListener("contextmenu",function(e){e.preventDefault()});
-
 // === QQ 禁右滑 ===
 if(isQQ){
   var s=document.createElement("script");
@@ -155,33 +135,18 @@ function goFullscreen(){
   var el=document.documentElement;
   var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen;
   if(fs)try{fs.call(el);}catch(ex){}
-  // 强制横屏
-  try{
-    if(screen.orientation&&screen.orientation.lock){
-      screen.orientation.lock("landscape").catch(function(){});
-    }
-  }catch(ex){}
+  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("landscape").catch(function(){});}catch(ex){}
 }
 
-// 退出全屏→立刻拉回
 document.addEventListener("fullscreenchange",function(){
   if(!document.fullscreenElement&&!ended)setTimeout(goFullscreen,20);
 });
 document.addEventListener("webkitfullscreenchange",function(){
   if(!document.webkitFullscreenElement&&!ended)setTimeout(goFullscreen,20);
 });
-// 横屏被解锁→重新锁定
-try{
-  if(screen.orientation){
-    screen.orientation.addEventListener("change",function(){
-      if(!ended&&screen.orientation.lock)screen.orientation.lock("landscape").catch(function(){});
-    });
-  }
-}catch(ex){}
 
 // === 诱饵→播放 ===
 bait.addEventListener("click",go);
-
 function go(e){
   if(started)return;
   e.preventDefault();
@@ -204,18 +169,22 @@ function go(e){
 
   if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:false});}catch(ex){}
 
+  // 播放时拦截所有触摸
+  shield.addEventListener("touchstart",function(e){e.preventDefault();},{passive:false});
+  shield.addEventListener("touchmove",function(e){e.preventDefault();},{passive:false});
+  shield.addEventListener("touchend",function(e){e.preventDefault();},{passive:false});
+
   document.addEventListener("visibilitychange",function(){
     if(!document.hidden&&!ended){v.play();v.volume=1.0;v.muted=false;goFullscreen();}
   });
 
+  document.addEventListener("keydown",function(e){if(!ended){e.preventDefault();e.stopPropagation()}});
+  document.addEventListener("contextmenu",function(e){e.preventDefault()});
   setInterval(function(){if(!ended){v.volume=1.0;v.muted=false;}},500);
 
-  // === 视频结束：保持全屏横屏，显示结果 ===
   v.onended=function(){
     ended=true;
     shield.style.display="none";
-
-    // 保持全屏！在全屏内显示整蛊结果
     player.style.background="#1a1a2e";
     v.style.display="none";
     pg.style.display="none";
@@ -225,17 +194,9 @@ function go(e){
     msg.innerHTML='<div><div style="font-size:60px">😂</div><h2 style="margin:16px 0;font-size:24px">哈哈哈哈被整了吧！</h2><p style="opacity:.7;font-size:16px">张雪峰老师给你上了一课</p><p style="opacity:.5;font-size:12px;margin-top:20px">退出全屏才能关闭</p></div>';
     document.body.appendChild(msg);
 
-    // 退出全屏时恢复
     document.addEventListener("fullscreenchange",function onFS(){
       if(!document.fullscreenElement){
         document.removeEventListener("fullscreenchange",onFS);
-        sessionStorage.removeItem("prank_trapped");
-        if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
-      }
-    });
-    document.addEventListener("webkitfullscreenchange",function onWFS(){
-      if(!document.webkitFullscreenElement){
-        document.removeEventListener("webkitfullscreenchange",onWFS);
         sessionStorage.removeItem("prank_trapped");
         if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:true});}catch(ex){}
       }
