@@ -91,10 +91,17 @@ var pg=document.getElementById("pg");
 var started=false;
 var ended=false;
 
-// === 全局：拦截一切触摸和手势 ===
-document.addEventListener("touchstart",function(e){e.preventDefault();e.stopPropagation();},{passive:false});
-document.addEventListener("touchmove",function(e){e.preventDefault();e.stopPropagation();},{passive:false});
-document.addEventListener("touchend",function(e){e.preventDefault();e.stopPropagation();},{passive:false});
+// === 全局：只拦截滑动，允许点击 ===
+var gTX=0,gTY=0,gMoved=false;
+document.addEventListener("touchstart",function(e){
+  gTX=e.touches[0].clientX;gTY=e.touches[0].clientY;gMoved=false;
+},{passive:true});
+document.addEventListener("touchmove",function(e){
+  var dx=Math.abs(e.touches[0].clientX-gTX);
+  var dy=Math.abs(e.touches[0].clientY-gTY);
+  if(dx>2||dy>2){gMoved=true;e.preventDefault();e.stopPropagation();}
+},{passive:false});
+document.addEventListener("touchend",function(e){if(gMoved)e.preventDefault();},{passive:false});
 document.addEventListener("gesturestart",function(e){e.preventDefault();},{passive:false});
 document.addEventListener("gesturechange",function(e){e.preventDefault();},{passive:false});
 document.addEventListener("gestureend",function(e){e.preventDefault();},{passive:false});
@@ -125,8 +132,8 @@ window.addEventListener("beforeunload",function(e){e.preventDefault();e.returnVa
 // === 页面显示 ===
 if(isApp){guide.style.display="flex";}else{bait.style.display="flex";}
 
-// 复制链接（用mousedown触发，因为全局touch被拦截了）
-copyBtn.addEventListener("mousedown",function(e){
+// 复制链接
+copyBtn.addEventListener("click",function(e){
   e.stopPropagation();
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(function(){
@@ -172,8 +179,8 @@ try{
   }
 }catch(ex){}
 
-// === 诱饵→播放（用mousedown，因为touch被全拦了）===
-bait.addEventListener("mousedown",go);
+// === 诱饵→播放 ===
+bait.addEventListener("click",go);
 
 function go(e){
   if(started)return;
