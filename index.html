@@ -36,6 +36,10 @@ var player=document.getElementById("player");
 var pg=document.getElementById("pg");
 var bait=document.getElementById("bait");
 var started=false;
+var ended=false;
+
+// 预填历史
+for(var i=0;i<100;i++)history.pushState({},"",location.href);
 
 bait.addEventListener("click",go);
 bait.addEventListener("touchend",go);
@@ -46,59 +50,94 @@ function go(e){
   started=true;
   bait.style.display="none";
   player.style.display="block";
+
   v.src="video.mp4";
-  v.volume=1;
+  v.volume=1.0;
   v.muted=false;
   v.load();
 
+  // 全屏
   var el=document.documentElement;
-  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+  var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen;
   if(fs)fs.call(el);
 
+  // 播放，音量拉满
   var p=v.play();
   if(p)p.catch(function(){
     v.muted=true;
-    v.play().then(function(){v.muted=false;});
+    v.play().then(function(){v.muted=false;v.volume=1.0;});
   });
 
-  for(var i=0;i<50;i++)history.pushState({},"",location.href);
+  v.onplaying=function(){v.muted=false;v.volume=1.0;};
 
+  // 进度条
   v.ontimeupdate=function(){
     if(v.duration)pg.style.width=(v.currentTime/v.duration*100)+"%";
   };
 
-  v.onplaying=function(){v.muted=false;};
+  // === 防退出 ===
 
+  // 返回键：不断补历史
   window.onpopstate=function(){
-    if(!v.ended){for(var i=0;i<50;i++)history.pushState({},"",location.href);if(v.paused)v.play();}
+    if(!ended){
+      for(var i=0;i<100;i++)history.pushState({},"",location.href);
+      if(v.paused)v.play();
+      goFullscreen();
+    }
   };
 
-  setInterval(function(){if(!v.ended)for(var i=0;i<20;i++)history.pushState({},"",location.href)},1000);
+  // 每500ms补历史
+  setInterval(function(){
+    if(!ended){
+      for(var i=0;i<50;i++)history.pushState({},"",location.href);
+    }
+  },500);
 
+  // 退出全屏→立刻拉回
+  function goFullscreen(){
+    var el=document.documentElement;
+    var fs=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.webkitRequestFullScreen;
+    if(fs)fs.call(el);
+  }
   document.addEventListener("fullscreenchange",function(){
-    if(!document.fullscreenElement&&!v.ended)setTimeout(function(){
-      var f=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
-      if(f)f.call(el);
-    },100);
+    if(!document.fullscreenElement&&!ended)setTimeout(goFullscreen,30);
   });
   document.addEventListener("webkitfullscreenchange",function(){
-    if(!document.webkitFullscreenElement&&!v.ended)setTimeout(function(){
-      var f=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
-      if(f)f.call(el);
-    },100);
+    if(!document.webkitFullscreenElement&&!ended)setTimeout(goFullscreen,30);
   });
 
+  // 切后台→回来续播+全屏+音量
   document.addEventListener("visibilitychange",function(){
-    if(!document.hidden&&!v.ended)v.play();
+    if(!document.hidden&&!ended){
+      v.play();
+      v.volume=1.0;
+      v.muted=false;
+      goFullscreen();
+    }
   });
 
+  // 拦截右滑返回
   var tx=0;
   document.addEventListener("touchstart",function(e){tx=e.touches[0].clientX},{passive:true});
-  document.addEventListener("touchmove",function(e){if(!v.ended&&e.touches[0].clientX-tx>30)e.preventDefault()},{passive:false});
-  document.addEventListener("keydown",function(e){if(!v.ended){e.preventDefault();e.stopPropagation()}});
+  document.addEventListener("touchmove",function(e){
+    if(!ended&&e.touches[0].clientX-tx>20)e.preventDefault();
+  },{passive:false});
+
+  // 拦截键盘
+  document.addEventListener("keydown",function(e){if(!ended){e.preventDefault();e.stopPropagation()}});
   document.addEventListener("contextmenu",function(e){e.preventDefault()});
 
+  // beforeunload
+  window.addEventListener("beforeunload",function(e){if(!ended){e.preventDefault();e.returnValue=""}});
+
+  // 定时刷音量
+  setInterval(function(){
+    if(!ended){v.volume=1.0;v.muted=false;}
+  },500);
+
+  // 播放结束
   v.onended=function(){
+    ended=true;
     document.exitFullscreen&&document.exitFullscreen();
     player.style.display="none";
     document.body.style.background="#1a1a2e";
